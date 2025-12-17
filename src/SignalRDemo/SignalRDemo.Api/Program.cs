@@ -21,19 +21,20 @@ namespace SignalRDemo.Api
 
             app.UseHttpsRedirection();
             app.UseAuthorization();
+            // 只暴露 OpenAPI JSON
+            app.UseSwagger();
 
             app.MapControllers();
             app.MapHub<ChatHub>("/hub/chat");
 
-            // 只暴露 OpenAPI JSON
-            app.UseSwagger();
+            
 
             // OpenAPI + Scalar
             if (app.Environment.IsDevelopment())
             {
                 app.MapScalarApiReference(options =>
                 {
-                    options.Title = "SignalR Demo API";
+                    options.WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
                 });
             }
 

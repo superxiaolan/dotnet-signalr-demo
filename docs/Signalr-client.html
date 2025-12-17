@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <title>SignalR Chat Client</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 24px; }
+    h1 { margin-bottom: 8px; }
+    .box { max-width: 640px; }
+    .row { display: flex; gap: 8px; margin-bottom: 8px; }
+    input, button { padding: 8px; }
+    input { flex: 1; }
+    #log { border: 1px solid #ddd; padding: 8px; height: 260px; overflow: auto; background: #fafafa; }
+    .msg { margin-bottom: 6px; }
+    .sys { color: #888; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>SignalR Chat Demo</h1>
+    <p class="sys">连接到 <code>/hub/chat</code>，演示最基础的消息广播。</p>
+
+    <div class="row">
+      <input id="user" placeholder="用户名（如：Alice）" />
+      <button id="connect">连接</button>
+      <button id="disconnect" disabled>断开</button>
+    </div>
+
+    <div class="row">
+      <input id="message" placeholder="输入消息" />
+      <button id="send" disabled>发送</button>
+    </div>
+
+    <div id="log"></div>
+  </div>
+
+  <!-- SignalR 客户端库（CDN） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js" integrity="sha512-5t4m7c2r0e7kq9n5qY8Q2y7Z5d0x9b7b8eXxJ2m4mZ3b5qg2e0X8b2m3yYQ4n9Vb1r1b3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script>
+    const log = document.getElementById('log');
+    const btnConnect = document.getElementById('connect');
+    const btnDisconnect = document.getElementById('disconnect');
+    const btnSend = document.getElementById('send');
+    const inputUser = document.getElementById('user');
+    const inputMsg = document.getElementById('message');
+
+    let connection = null;
+
+    function addLog(text, cls) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + (cls || '');
+      div.textContent = text;
+      log.appendChild(div);
+      log.scrollTop = log.scrollHeight;
+    }
+
+    btnConnect.onclick = async () => {
+      if (!inputUser.value) {
+        alert('请先输入用户名');
+        return;
+      }
+
+      connection = new signalR.HubConnectionBuilder()
+        .withUrl('https://localhost:5001/hub/chat') // 如端口不同请改成你本机实际端口
+        .withAutomaticReconnect()
+        .build();
+
+      connection.on('ReceiveMessage', (user, message) => {
+        addLog(`${user}: ${message}`);
+      });
+
+      connection.onreconnecting(() => addLog('正在重连…', 'sys'));
+      connection.onreconnected(() => addLog('已重连', 'sys'));
+      connection.onclose(() => addLog('连接已断开', 'sys'));
+
+      try {
+        await connection.start();
+        addLog('已连接', 'sys');
+        btnConnect.disabled = true;
+        btnDisconnect.disabled = false;
+        btnSend.disabled = false;
+      } catch (err) {
+        console.error(err);
+        addLog('连接失败，请检查后端是否启动 / 端口是否正确', 'sys');
+      }
+    };
+
+    btnDisconnect.onclick = async () => {
+      if (connection) {
+        await connection.stop();
+      }
+      btnConnect.disabled = false;
+      btnDisconnect.disabled = true;
+      btnSend.disabled = true;
+    };
+
+    btnSend.onclick = async () => {
+      if (!connection) return;
+      const msg = inputMsg.value;
+      if (!msg) return;
+
+      await connection.invoke('SendMessage', inputUser.value, msg);
+      inputMsg.value = '';
+    };
+  </script>
+</body>
+</html>
