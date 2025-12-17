@@ -1,4 +1,4 @@
-
+﻿using Scalar.AspNetCore;
 using SignalRDemo.Api.Hubs;
 
 namespace SignalRDemo.Api
@@ -9,30 +9,33 @@ namespace SignalRDemo.Api
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
-
+            // Services
             builder.Services.AddControllers();
-            // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+            builder.Services.AddSignalR();
+
+            // 只用于生成 OpenAPI 描述
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-            builder.Services.AddSignalR();
 
             var app = builder.Build();
 
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
             app.UseHttpsRedirection();
-
             app.UseAuthorization();
-
 
             app.MapControllers();
             app.MapHub<ChatHub>("/hub/chat");
+
+            // 只暴露 OpenAPI JSON
+            app.UseSwagger();
+
+            // OpenAPI + Scalar
+            if (app.Environment.IsDevelopment())
+            {
+                app.MapScalarApiReference(options =>
+                {
+                    options.Title = "SignalR Demo API";
+                });
+            }
 
             app.Run();
         }
