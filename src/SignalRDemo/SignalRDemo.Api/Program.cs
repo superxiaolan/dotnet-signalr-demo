@@ -1,5 +1,8 @@
 ﻿using Scalar.AspNetCore;
 using SignalRDemo.Api.Hubs;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace SignalRDemo.Api
 {
@@ -17,17 +20,34 @@ namespace SignalRDemo.Api
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
+            var jwtSection = builder.Configuration.GetSection("Jwt");
+
+            builder.Services
+                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = jwtSection["Issuer"],
+                        ValidAudience = jwtSection["Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(
+                            Encoding.UTF8.GetBytes(jwtSection["SecretKey"]!))
+                    };
+                });
+
             var app = builder.Build();
 
             app.UseHttpsRedirection();
+
+            app.UseAuthentication();
             app.UseAuthorization();
+
             // 只暴露 OpenAPI JSON
             app.UseSwagger();
-
-            app.MapControllers();
-            app.MapHub<ChatHub>("/hub/chat");
-
-            
 
             // OpenAPI + Scalar
             if (app.Environment.IsDevelopment())
@@ -37,6 +57,9 @@ namespace SignalRDemo.Api
                     options.WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
                 });
             }
+
+            app.MapControllers();
+            app.MapHub<ChatHub>("/hub/chat");
 
             app.Run();
         }
