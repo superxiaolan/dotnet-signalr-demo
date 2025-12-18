@@ -16,6 +16,18 @@ namespace SignalRDemo.Api
             builder.Services.AddControllers();
             builder.Services.AddSignalR();
 
+            // 配置 CORS（支持 SignalR 的 credentials 模式）
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowAll", policy =>
+                {
+                    policy.SetIsOriginAllowed(_ => true) // 允许任何来源，包括 null (file://)
+                          .AllowAnyMethod()
+                          .AllowAnyHeader()
+                          .AllowCredentials(); // SignalR 需要凭据支持
+                });
+            });
+
             // 只用于生成 OpenAPI 描述
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -42,6 +54,9 @@ namespace SignalRDemo.Api
             var app = builder.Build();
 
             app.UseHttpsRedirection();
+
+            // 启用 CORS
+            app.UseCors("AllowAll");
 
             app.UseAuthentication();
             app.UseAuthorization();
