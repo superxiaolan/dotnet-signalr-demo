@@ -42,16 +42,12 @@ namespace SignalRDemo.Api
             var app = builder.Build();
 
             app.UseHttpsRedirection();
-            app.UseAuthorization();
-            // 只暴露 OpenAPI JSON
-            app.UseSwagger();
+
             app.UseAuthentication();
             app.UseAuthorization();
 
-            app.MapControllers();
-            app.MapHub<ChatHub>("/hub/chat");
-
-            
+            // 只暴露 OpenAPI JSON
+            app.UseSwagger();
 
             // OpenAPI + Scalar
             if (app.Environment.IsDevelopment())
@@ -61,6 +57,9 @@ namespace SignalRDemo.Api
                     options.WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json");
                 });
             }
+
+            app.MapControllers();
+            app.MapHub<ChatHub>("/hub/chat");
 
             app.Run();
         }
