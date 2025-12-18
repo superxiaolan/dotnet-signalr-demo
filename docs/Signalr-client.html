@@ -36,74 +36,96 @@
   </div>
 
   <!-- SignalR 客户端库（CDN） -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js" integrity="sha512-5t4m7c2r0e7kq9n5qY8Q2y7Z5d0x9b7b8eXxJ2m4mZ3b5qg2e0X8b2m3yYQ4n9Vb1r1b3Q==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
+	<script>
+	  const log = document.getElementById("log");
+	  const connectBtn = document.getElementById("connect");
+	  const disconnectBtn = document.getElementById("disconnect");
+	  const sendBtn = document.getElementById("send");
 
-  <script>
-    const log = document.getElementById('log');
-    const btnConnect = document.getElementById('connect');
-    const btnDisconnect = document.getElementById('disconnect');
-    const btnSend = document.getElementById('send');
-    const inputUser = document.getElementById('user');
-    const inputMsg = document.getElementById('message');
+	  let connection = null;
+	  let token = "";
 
-    let connection = null;
+	  function writeLog(text, cls = "") {
+		const div = document.createElement("div");
+		div.className = `msg ${cls}`;
+		div.innerText = text;
+		log.appendChild(div);
+		log.scrollTop = log.scrollHeight;
+	  }
 
-    function addLog(text, cls) {
-      const div = document.createElement('div');
-      div.className = 'msg ' + (cls || '');
-      div.textContent = text;
-      log.appendChild(div);
-      log.scrollTop = log.scrollHeight;
-    }
+	  async function login(username) {
+		const res = await fetch("https://localhost:7150/api/auth/login", {
+		  method: "POST",
+		  headers: { "Content-Type": "application/json" },
+		  body: JSON.stringify({
+			username: "admin",
+			password: "123456"
+		  })
+		});
 
-    btnConnect.onclick = async () => {
-      if (!inputUser.value) {
-        alert('请先输入用户名');
-        return;
-      }
+		if (!res.ok) {
+		  throw new Error("登录失败");
+		}
 
-      connection = new signalR.HubConnectionBuilder()
-        .withUrl('https://localhost:5001/hub/chat') // 如端口不同请改成你本机实际端口
-        .withAutomaticReconnect()
-        .build();
+		const data = await res.json();
+		return data.token;
+	  }
 
-      connection.on('ReceiveMessage', (user, message) => {
-        addLog(`${user}: ${message}`);
-      });
+	  async function connect() {
+		try {
+		  writeLog("正在登录...", "sys");
 
-      connection.onreconnecting(() => addLog('正在重连…', 'sys'));
-      connection.onreconnected(() => addLog('已重连', 'sys'));
-      connection.onclose(() => addLog('连接已断开', 'sys'));
+		  token = await login();
+		  writeLog("登录成功，获取到 Token", "sys");
 
-      try {
-        await connection.start();
-        addLog('已连接', 'sys');
-        btnConnect.disabled = true;
-        btnDisconnect.disabled = false;
-        btnSend.disabled = false;
-      } catch (err) {
-        console.error(err);
-        addLog('连接失败，请检查后端是否启动 / 端口是否正确', 'sys');
-      }
-    };
+		  connection = new signalR.HubConnectionBuilder()
+			.withUrl("https://localhost:7150/hub/chat", {
+			  accessTokenFactory: () => token
+			})
+			.withAutomaticReconnect()
+			.build();
 
-    btnDisconnect.onclick = async () => {
-      if (connection) {
-        await connection.stop();
-      }
-      btnConnect.disabled = false;
-      btnDisconnect.disabled = true;
-      btnSend.disabled = true;
-    };
+		  connection.on("ReceiveMessage", (user, message) => {
+			writeLog(`${user}: ${message}`);
+		  });
 
-    btnSend.onclick = async () => {
-      if (!connection) return;
-      const msg = inputMsg.value;
-      if (!msg) return;
+		  await connection.start();
 
-      await connection.invoke('SendMessage', inputUser.value, msg);
-      inputMsg.value = '';
-    };
-  </script>
+		  writeLog("已连接到 SignalR Hub", "sys");
+
+		  connectBtn.disabled = true;
+		  disconnectBtn.disabled = false;
+		  sendBtn.disabled = false;
+		} catch (err) {
+		  console.error(err);
+		  writeLog("连接失败：" + err.message, "sys");
+		}
+	  }
+
+	  async function disconnect() {
+		if (connection) {
+		  await connection.stop();
+		  writeLog("已断开连接", "sys");
+		}
+		connectBtn.disabled = false;
+		disconnectBtn.disabled = true;
+		sendBtn.disabled = true;
+	  }
+
+	  async function sendMessage() {
+		const msg = document.getElementById("message").value;
+		if (!msg) return;
+
+		await connection.invoke("SendMessage", "admin", msg);
+		document.getElementById("message").value = "";
+	  }
+
+	  connectBtn.onclick = connect;
+	  disconnectBtn.onclick = disconnect;
+	  sendBtn.onclick = sendMessage;
+	</script>
+
+
 </body>
 </html>
